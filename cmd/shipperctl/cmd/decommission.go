@@ -7,14 +7,10 @@ import (
 
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/bookingcom/shipper/cmd/shipperctl/configurator"
 	cmdutil "github.com/bookingcom/shipper/cmd/shipperctl/util"
 	shipper "github.com/bookingcom/shipper/pkg/apis/shipper/v1alpha1"
-	shipperclientset "github.com/bookingcom/shipper/pkg/client/clientset/versioned"
-	apputil "github.com/bookingcom/shipper/pkg/util/application"
-	"github.com/bookingcom/shipper/pkg/util/filters"
 	releaseutil "github.com/bookingcom/shipper/pkg/util/release"
 )
 
