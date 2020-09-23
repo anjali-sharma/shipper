@@ -120,14 +120,14 @@ func runCleanCommand(cmd *cobra.Command, args []string) error {
 }
 
 func getFilteredSelectedClusters(rel *shipper.Release) []string {
-	clusters := releaseutil.GetSelectedClusters(rel)
-	var trueClusters []string
-	for _, cluster := range clusters {
-		if !filters.SliceContainsString(clusters, cluster) {
-			trueClusters = append(trueClusters, cluster)
+	selectedClusters := releaseutil.GetSelectedClusters(rel)
+	var filteredClusters []string
+	for _, selectedCluster := range selectedClusters {
+		if !filters.SliceContainsString(clusters, selectedCluster) {
+			filteredClusters = append(filteredClusters, selectedCluster)
 		}
 	}
-	return trueClusters
+	return filteredClusters
 }
 
 func isContender(rel *shipper.Release, configurator *configurator.Cluster) (bool, error) {
