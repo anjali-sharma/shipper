@@ -1,9 +1,8 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
-	"io"
+	"os"
 	"sort"
 	"strings"
 
@@ -75,8 +74,12 @@ func runCleanCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	//deleteReleases, updateAnnotations, err := collectReleases(kubeClient, shipperClient)
-	_, _, err = collectReleases(kubeClient, shipperClient)
+	deleteReleases, updateAnnotations, err := collectReleases(kubeClient, shipperClient)
+	if err != nil {
+		return err
+	}
+
+	err = reviewActions(cmd, deleteReleases, updateAnnotations)
 	if err != nil {
 		return err
 	}
@@ -162,28 +165,93 @@ func collectReleases(kubeClient kubernetes.Interface, shipperClient shipperclien
 	return deleteReleases, updateAnnotations, fmt.Errorf(strings.Join(errList, ","))
 }
 
-// askForConfirmation asks the user for confirmation. A user must type in "y" or "n" and
-// then press enter. It has fuzzy matching, so "y", "Y" both count as
-// confirmations. If the input is not recognized, it will ask again. The function does not return
-// until it gets a valid response from the user.
-// taken from https://gist.github.com/r0l1/3dcbb0c8f6cfe9c66ab8008f55f8f28b
-func askForConfirmation(stdin io.Reader, message string) (bool, error) {
-	reader := bufio.NewReader(stdin)
-
-	for {
-		fmt.Printf("%s [y/n]: ", message)
-
-		response, err := reader.ReadString('\n')
-		if err != nil {
-			return false, err
-		}
-
-		response = strings.ToLower(strings.TrimSpace(response))
-
-		if response == "y" {
-			return true, nil
-		} else if response == "n" {
-			return false, nil
-		}
+func reviewActions(cmd *cobra.Command, deleteReleases []ReleaseAndFilteredAnnotations, updateAnnotations []ReleaseAndFilteredAnnotations) error {
+	cmd.Printf("About to edit %d releases and and delete %d releases\n", len(updateAnnotations), len(deleteReleases))
+	confirm, err := cmdutil.AskForConfirmation(os.Stdin, "Would you like to see the releases? (This will not start the process)")
+	if err != nil {
+		return err
 	}
+	if confirm {
+		tt := &metav1.Table{
+			TypeMeta: metav1.TypeMeta{},
+			ListMeta: metav1.ListMeta{},
+			ColumnDefinitions: []metav1.TableColumnDefinition{
+				{
+					Name: "Namespace",
+					Type: "string",
+				},
+				{
+					Name: "Name",
+					Type: "string",
+				},
+
+				{
+					Name: "Action Taken",
+					Type: "string",
+				},
+
+				{
+					Name: "Old Clusters Annotations",
+					Type: "string",
+				},
+
+				{
+					Name: "New Clusters Annotations",
+					Type: "string",
+				},
+			},
+			Rows: nil,
+		}
+		//tbl, err := prettytable.NewTable([]prettytable.Column{
+		//	{Header: "NAMESPACE"},
+		//	{Header: "NAME"},
+		//	{Header: "ACTION TAKEN"},
+		//	{Header: "OLD CLUSTER ANNOTATIONS"},
+		//	{Header: "NEW CLUSTER ANNOTATIONS"},
+		//}...)
+		//if err != nil {
+		//	return err
+		//}
+		for _, release := range deleteReleases {
+			tt.Rows = append(tt.Rows, metav1.TableRow{
+				Cells: []interface{}{
+					release.Namespace,
+					release.Name,
+					" DELETE ",
+					release.OldClusterAnnotation,
+					release.FilteredClusterAnnotation,
+				},
+			})
+			//tbl.AddRow(
+			//	release.Namespace,
+			//	release.Name,
+			//	" DELETE ",
+			//	release.OldClusterAnnotation,
+			//	release.FilteredClusterAnnotation,
+			//)
+		}
+		for _, release := range updateAnnotations {
+			tt.Rows = append(tt.Rows, metav1.TableRow{
+				Cells: []interface{}{
+					release.Namespace,
+					release.Name,
+					"UPDATE",
+					release.OldClusterAnnotation,
+					release.FilteredClusterAnnotation,
+				},
+			})
+			//tbl.AddRow(
+			//	release.Namespace,
+			//	release.Name,
+			//	"UPDATE",
+			//	release.OldClusterAnnotation,
+			//	release.FilteredClusterAnnotation,
+			//)
+		}
+		//tbl.Print()
+		//printer := printers.NewTablePrinter(printers.PrintOptions{})
+		//printer.PrintObj(tt, cmd.OutOrStdout())
+		//cmd.Println()
+	}
+	return nil
 }
