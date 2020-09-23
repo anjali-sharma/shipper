@@ -14,6 +14,10 @@ import (
 	"github.com/bookingcom/shipper/cmd/shipperctl/configurator"
 )
 
+const (
+	clustersFlagName = "clusters"
+)
+
 var (
 	printOption string
 

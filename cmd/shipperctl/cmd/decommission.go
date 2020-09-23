@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	clustersFlagName = "clusters"
+	decommissionedClustersFlagName = "decommissioned-clusters"
 )
 
 var (
@@ -47,9 +47,9 @@ func init() {
 
 	CleanCmd.PersistentFlags().BoolVar(&dryrun, "dryrun", false, "If true, only prints the objects that will be modified/deleted")
 	CleanCmd.PersistentFlags().StringVar(&managementClusterContext, "management-cluster-context", "", "The name of the context to use to communicate with the management cluster. defaults to the current one")
-	CleanCmd.PersistentFlags().StringSliceVar(&clusters, clustersFlagName, clusters, "List of decommissioned clusters. (Required)")
-	if err := CleanCmd.MarkPersistentFlagRequired(clustersFlagName); err != nil {
-		CleanCmd.Printf("warning: could not mark %q as required: %s\n", clustersFlagName, err)
+	CleanCmd.PersistentFlags().StringSliceVar(&clusters, decommissionedClustersFlagName, clusters, "List of decommissioned clusters. (Required)")
+	if err := CleanCmd.MarkPersistentFlagRequired(decommissionedClustersFlagName); err != nil {
+		CleanCmd.Printf("warning: could not mark %q as required: %s\n", decommissionedClustersFlagName, err)
 	}
 
 	CleanCmd.AddCommand(cleanDeadClustersCmd)
@@ -73,14 +73,14 @@ func runCleanCommand(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		for _, rel := range releaseList.Items {
-			trueClusters := getFilteredSelectedClusters(&rel)
-			if len(trueClusters) > 0 {
-				sort.Strings(trueClusters)
+			filteredClusters := getFilteredSelectedClusters(&rel)
+			if len(filteredClusters) > 0 {
+				sort.Strings(filteredClusters)
 
-				if strings.Join(trueClusters, ",") == rel.Annotations[shipper.ReleaseClustersAnnotation] {
+				if strings.Join(filteredClusters, ",") == rel.Annotations[shipper.ReleaseClustersAnnotation] {
 					continue
 				}
-				rel.Annotations[shipper.ReleaseClustersAnnotation] = strings.Join(trueClusters, ",")
+				rel.Annotations[shipper.ReleaseClustersAnnotation] = strings.Join(filteredClusters, ",")
 				cmd.Printf("Editing annotations of release %s/%s to %s...", rel.Namespace, rel.Name, rel.Annotations[shipper.ReleaseClustersAnnotation])
 				if !dryrun {
 					_, err := configurator.ShipperClient.ShipperV1alpha1().Releases(ns.Name).Update(&rel)
@@ -98,7 +98,7 @@ func runCleanCommand(cmd *cobra.Command, args []string) error {
 				errList = append(errList, err.Error())
 				continue
 			}
-			if len(trueClusters) == 0 && !isContender {
+			if len(filteredClusters) == 0 && !isContender {
 				cmd.Printf("Deleting release %s/%s...", rel.Namespace, rel.Name)
 				if !dryrun {
 					err := configurator.ShipperClient.ShipperV1alpha1().Releases(ns.Name).Delete(rel.Name, &metav1.DeleteOptions{})
